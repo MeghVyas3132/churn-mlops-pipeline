@@ -1,0 +1,85 @@
+# ---------------------------------------------------------------------------
+# The pipeline DAG.
+#
+# `dvc repro` walks these stages in dependency order and re-runs only the ones
+# whose inputs changed. Change a hyperparameter under `train:` in params.yaml and
+# DVC re-runs train + evaluate but reuses the cached ingest and preprocess
+# outputs -- which is what makes iterating on this cheap.
+#
+# The `params:` blocks are what give DVC that resolution: it hashes only the
+# listed keys, so an edit to `train.models` does not invalidate preprocessing.
+# ---------------------------------------------------------------------------
+
+stages:
+
+  ingest:
+    cmd: python -m src.data.ingest
+    deps:
+      - src/data/ingest.py
+      - src/utils/config.py
+      - src/utils/logger.py
+    params:
+      - ingest
+    outs:
+      # The raw CSVs are far too large for Git. DVC stores their hash in
+      # dvc.lock (which IS committed) and the bytes in the remote.
+      - data/raw
+
+  preprocess:
+    cmd: python -m src.data.preprocess
+    deps:
+      - src/data/preprocess.py
+      - src/utils/config.py
+      - src/utils/logger.py
+      - data/raw
+    params:
+      - seed
+      - ingest.train_file
+      - ingest.target_column
+      - ingest.id_column
+      - preprocess
+    outs:
+      - data/processed
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - src/models/train.py
+      - src/utils/config.py
+      - src/utils/logger.py
+      - data/processed
+    params:
+      - seed
+      - preprocess.processed_dir
+      - preprocess.test_size
+      - train
+      - mlflow
+    outs:
+      - models/candidates
+
+  evaluate:
+    cmd: python -m src.models.evaluate
+    deps:
+      - src/models/evaluate.py
+      - src/utils/config.py
+      - src/utils/logger.py
+      - data/processed
+      - models/candidates
+    params:
+      - seed
+      - preprocess.processed_dir
+      - train.models_dir
+      - train.primary_metric
+      - evaluate
+      - mlflow
+    outs:
+      - models/best_model.joblib
+      - reports/plots
+    metrics:
+      # cache: false keeps this file in Git rather than DVC storage, so
+      # `dvc metrics diff main` can compare it against any other commit.
+      - reports/metrics.json:
+          cache: false
+    plots:
+      - reports/model_comparison.csv:
+          cache: false
