@@ -23,7 +23,13 @@ stages:
     outs:
       # The raw CSVs are far too large for Git. DVC stores their hash in
       # dvc.lock (which IS committed) and the bytes in the remote.
-      - data/raw
+      #
+      # persist: true stops DVC wiping this directory before the stage runs.
+      # Without it, manually-downloaded CSVs get deleted moments before ingest
+      # looks for them -- so anyone without a Kaggle token could never run the
+      # pipeline. It also means a re-run never re-downloads ~400MB.
+      - data/raw:
+          persist: true
 
   preprocess:
     cmd: python -m src.data.preprocess
