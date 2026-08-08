@@ -12,6 +12,8 @@ benefit of enabling the Model Registry -- which the file store never supported.
 
 from __future__ import annotations
 
+import os
+
 import mlflow
 
 from src.utils.config import ensure_dir, resolve_path
@@ -20,6 +22,15 @@ from src.utils.logger import get_logger
 LOGGER = get_logger("utils.tracking")
 
 _SQLITE_PREFIX = "sqlite:///"
+
+
+def is_local_store(tracking_uri: str) -> bool:
+    """True if runs are written to this machine rather than a tracking server.
+
+    Drives two decisions: whether we may set an artifact location (a server owns
+    its own storage) and whether credentials are needed.
+    """
+    return tracking_uri.startswith((_SQLITE_PREFIX, "file://"))
 
 
 def resolve_tracking_uri(raw_uri: str) -> str:
@@ -44,17 +55,32 @@ def setup_mlflow(mlflow_cfg: dict) -> str:
 
     Returns the resolved tracking URI so the caller can log it.
     """
-    tracking_uri = resolve_tracking_uri(mlflow_cfg["tracking_uri"])
+    # MLFLOW_TRACKING_URI wins over params.yaml. That is what lets the same
+    # commit log to a local SQLite file on a laptop and to a hosted tracking
+    # server in CI -- without a server URL or credentials ever entering Git.
+    env_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    if env_uri:
+        tracking_uri = env_uri
+        LOGGER.info("Using MLFLOW_TRACKING_URI from the environment")
+    else:
+        tracking_uri = resolve_tracking_uri(mlflow_cfg["tracking_uri"])
+
     mlflow.set_tracking_uri(tracking_uri)
 
     experiment_name = mlflow_cfg["experiment_name"]
 
     # set_experiment() cannot specify an artifact location, so the experiment is
     # created explicitly the first time to keep artifacts inside the project.
+    # A remote server manages its own artifact storage, so we must not try to
+    # hand it a local path it cannot write to.
     if mlflow.get_experiment_by_name(experiment_name) is None:
-        artifact_location = ensure_dir(mlflow_cfg["artifact_location"]).as_uri()
-        mlflow.create_experiment(experiment_name, artifact_location=artifact_location)
-        LOGGER.info("Created MLflow experiment '%s' at %s", experiment_name, artifact_location)
+        if is_local_store(tracking_uri):
+            artifact_location = ensure_dir(mlflow_cfg["artifact_location"]).as_uri()
+            mlflow.create_experiment(experiment_name, artifact_location=artifact_location)
+            LOGGER.info("Created MLflow experiment '%s' at %s", experiment_name, artifact_location)
+        else:
+            mlflow.create_experiment(experiment_name)
+            LOGGER.info("Created MLflow experiment '%s' on the tracking server", experiment_name)
 
     mlflow.set_experiment(experiment_name)
     LOGGER.info("MLflow tracking URI: %s (experiment: %s)", tracking_uri, experiment_name)

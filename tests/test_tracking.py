@@ -8,7 +8,7 @@ appearing to be broken. These tests pin the resolution rules.
 from __future__ import annotations
 
 from src.utils.config import PROJECT_ROOT, load_params
-from src.utils.tracking import resolve_tracking_uri
+from src.utils.tracking import is_local_store, resolve_tracking_uri
 
 
 def test_relative_sqlite_path_resolves_against_the_project_root():
@@ -44,3 +44,24 @@ def test_experiment_and_registered_model_names_are_configured():
     assert mlflow_cfg["experiment_name"]
     assert mlflow_cfg["registered_model_name"]
     assert mlflow_cfg["artifact_location"]
+
+
+def test_sqlite_and_file_uris_are_local_stores():
+    assert is_local_store("sqlite:////tmp/mlflow.db") is True
+    assert is_local_store("file:///tmp/mlruns") is True
+
+
+def test_http_tracking_server_is_not_a_local_store():
+    """Decides whether we may hand MLflow a local artifact path.
+
+    Passing one to a hosted server (DagsHub, Databricks) points the experiment at
+    a directory the server cannot write to, and artifact logging then fails.
+    """
+    assert is_local_store("https://dagshub.com/user/repo.mlflow") is False
+    assert is_local_store("http://localhost:5000") is False
+
+
+def test_configured_backend_is_recognised_as_local():
+    """The committed default must never require a running server."""
+    resolved = resolve_tracking_uri(load_params()["mlflow"]["tracking_uri"])
+    assert is_local_store(resolved) is True

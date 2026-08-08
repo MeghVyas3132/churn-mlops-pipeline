@@ -45,15 +45,26 @@ EXPECTED_COLUMNS = {
 def kaggle_credentials_available() -> bool:
     """True if the Kaggle client will be able to authenticate.
 
-    The client accepts either ~/.kaggle/kaggle.json or the KAGGLE_USERNAME /
-    KAGGLE_KEY environment pair. CI uses the env vars (via repository secrets);
-    a local machine normally uses the file.
+    Four mechanisms are accepted, because the client supports two generations of
+    credential and the older one is still widely documented:
+
+      * KAGGLE_API_TOKEN            -- current format, single opaque token
+      * ~/.kaggle/access_token      -- the same token stored on disk
+      * KAGGLE_USERNAME + KAGGLE_KEY -- legacy pair, still honoured
+      * ~/.kaggle/kaggle.json       -- legacy pair stored on disk
+
+    CI supplies the env var from a repository secret; a local machine normally
+    uses the file. Checking all four means the error message below only appears
+    when authentication genuinely cannot succeed.
     """
+    if os.environ.get("KAGGLE_API_TOKEN"):
+        return True
+
     if os.environ.get("KAGGLE_USERNAME") and os.environ.get("KAGGLE_KEY"):
         return True
 
     config_dir = Path(os.environ.get("KAGGLE_CONFIG_DIR", Path.home() / ".kaggle"))
-    return (config_dir / "kaggle.json").exists()
+    return (config_dir / "access_token").exists() or (config_dir / "kaggle.json").exists()
 
 
 def download_from_kaggle(dataset: str, destination: Path) -> None:
@@ -131,11 +142,12 @@ def main() -> int:
         LOGGER.error(
             "Raw data missing and no Kaggle credentials found.\n"
             "  Fix by either:\n"
-            "    1. Placing your API token at ~/.kaggle/kaggle.json "
+            "    1. Saving your API token to ~/.kaggle/access_token "
             "(chmod 600), or\n"
-            "    2. Exporting KAGGLE_USERNAME and KAGGLE_KEY, or\n"
+            "    2. Exporting KAGGLE_API_TOKEN, or\n"
             "    3. Downloading the CSVs manually from "
-            "https://www.kaggle.com/datasets/%s into %s",
+            "https://www.kaggle.com/datasets/%s into %s\n"
+            "  Get a token at https://www.kaggle.com/settings -> API.",
             ingest_cfg["kaggle_dataset"],
             raw_dir,
         )

@@ -66,20 +66,46 @@ def test_summarise_handles_an_empty_frame():
     summarise(empty, "empty", "Churn")
 
 
-def test_kaggle_credentials_check_reads_env_vars(monkeypatch, tmp_path):
-    """Env-var auth is the path CI uses via repository secrets."""
+@pytest.fixture
+def no_kaggle_credentials(monkeypatch, tmp_path):
+    """Isolate the credential check from whatever the host machine has.
+
+    Without this the tests pass or fail depending on whether the developer
+    running them happens to have a Kaggle token installed.
+    """
+    for variable in ("KAGGLE_API_TOKEN", "KAGGLE_USERNAME", "KAGGLE_KEY"):
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("KAGGLE_CONFIG_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_no_credentials_is_detected(no_kaggle_credentials):
+    assert kaggle_credentials_available() is False
+
+
+def test_modern_api_token_env_var_is_detected(monkeypatch, no_kaggle_credentials):
+    """The current token format, and the path CI uses via a repository secret."""
+    monkeypatch.setenv("KAGGLE_API_TOKEN", "KGAT_example")
+    assert kaggle_credentials_available() is True
+
+
+def test_access_token_file_is_detected(no_kaggle_credentials):
+    """What `kaggle auth` and the settings page write on a local machine."""
+    (no_kaggle_credentials / "access_token").write_text("KGAT_example")
+    assert kaggle_credentials_available() is True
+
+
+def test_legacy_username_key_pair_is_detected(monkeypatch, no_kaggle_credentials):
     monkeypatch.setenv("KAGGLE_USERNAME", "someone")
     monkeypatch.setenv("KAGGLE_KEY", "a-key")
     assert kaggle_credentials_available() is True
 
 
-def test_kaggle_credentials_check_reads_config_file(monkeypatch, tmp_path):
-    monkeypatch.delenv("KAGGLE_USERNAME", raising=False)
-    monkeypatch.delenv("KAGGLE_KEY", raising=False)
-    monkeypatch.setenv("KAGGLE_CONFIG_DIR", str(tmp_path))
-
+def test_legacy_username_without_key_is_not_enough(monkeypatch, no_kaggle_credentials):
+    monkeypatch.setenv("KAGGLE_USERNAME", "someone")
     assert kaggle_credentials_available() is False
 
-    (tmp_path / "kaggle.json").write_text('{"username": "someone", "key": "a-key"}')
+
+def test_legacy_kaggle_json_file_is_detected(no_kaggle_credentials):
+    (no_kaggle_credentials / "kaggle.json").write_text('{"username": "a", "key": "b"}')
     assert kaggle_credentials_available() is True

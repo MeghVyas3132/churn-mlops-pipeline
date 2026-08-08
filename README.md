@@ -84,6 +84,42 @@ XGBoost (gradient boosting). All three train on the same split with the same see
 selection is driven by **ROC-AUC** — not accuracy, which flatters a model that simply
 predicts the majority class on imbalanced churn data.
 
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
+|-------|----------|-----------|--------|-----|---------|
+| Logistic Regression | 0.8962 | 0.9395 | 0.8738 | 0.9054 | 0.9596 |
+| Random Forest | 0.9921 | 0.9999 | 0.9862 | 0.9930 | 0.9999 |
+| **XGBoost** (promoted) | **0.9999** | **1.0000** | **0.9997** | **0.9999** | **1.0000** |
+
+### Why the scores are near-perfect — and why that is not a bug
+
+A ROC-AUC of 1.000 normally means label leakage. Here it does not. **This Kaggle dataset is
+synthetically generated and contains a hard deterministic rule.** Checking the raw file:
+
+```
+Support Calls    churn rate    rows
+      5            0.947       24,918
+      6            1.000       23,554
+      7            1.000       23,870
+      8            1.000       23,559
+      9            1.000       23,630
+     10            1.000       23,900
+```
+
+Every one of the ~118,000 customers with 6 or more support calls churned, without a single
+exception. That is a rule the data generator applied, not a pattern learned from behaviour.
+
+Two pieces of evidence that our pipeline is not leaking:
+
+1. **Logistic Regression only reaches 0.96.** A leak would lift *every* model to ~1.0. A
+   linear model cannot express a sharp step at `Support Calls >= 6`, so it lags — precisely
+   the signature of a threshold rule rather than a leaked label.
+2. **The leakage tests pass.** `test_transformer_is_fitted_on_training_data_only` and
+   `test_split_produces_disjoint_rows` assert the two failure modes directly.
+
+The practical reading: these metrics say the pipeline is wired correctly, not that churn
+prediction is solved. On real customer data expect ROC-AUC in the 0.75–0.85 range, and the
+`min_roc_auc` gate in `params.yaml` is set to a realistic 0.70 rather than to these numbers.
+
 ---
 
 ## Design decisions worth knowing
