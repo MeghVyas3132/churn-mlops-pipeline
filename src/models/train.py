@@ -35,6 +35,19 @@ from src.utils.tracking import log_model, setup_mlflow
 
 LOGGER = get_logger("models.train")
 
+# Cross-validation scores are rounded before being written to disk.
+#
+# cross_val_score reduces fold results in a thread pool, and the summation order
+# is not guaranteed between runs. That perturbs the last few digits of a float:
+# an observed cv_roc_auc_std moved from 8.371206137887138e-06 to
+# 8.371206137903637e-06 across two otherwise identical runs. The model binaries
+# were byte-identical -- only this number moved -- but it was enough to change
+# the hash of models/candidates and make DVC re-run every downstream stage.
+#
+# Eight decimals is far beyond any meaningful precision for a ROC-AUC and makes
+# the artifact stable, so `dvc repro` correctly reports "didn't change".
+METRIC_PRECISION = 8
+
 # Registry of everything trainable. Adding a fourth candidate means adding a
 # builder here and a block in params.yaml -- no other file changes.
 MODEL_BUILDERS = {
@@ -71,8 +84,8 @@ def cross_validate(model, x_train, y_train, folds: int, seed: int) -> dict[str, 
     scores = cross_val_score(model, x_train, y_train, cv=splitter, scoring="roc_auc")
 
     return {
-        "cv_roc_auc_mean": float(scores.mean()),
-        "cv_roc_auc_std": float(scores.std()),
+        "cv_roc_auc_mean": round(float(scores.mean()), METRIC_PRECISION),
+        "cv_roc_auc_std": round(float(scores.std()), METRIC_PRECISION),
     }
 
 

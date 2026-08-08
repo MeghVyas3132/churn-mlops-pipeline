@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 from src.data.preprocess import build_preprocessor, to_frame
-from src.models.train import MODEL_BUILDERS, build_model, cross_validate
+from src.models.train import METRIC_PRECISION, MODEL_BUILDERS, build_model, cross_validate
 from src.utils.config import load_params
 
 SEED = 42
@@ -149,3 +149,20 @@ def test_cross_validate_is_deterministic(training_matrix):
     second = cross_validate(build_model("logistic_regression", {"max_iter": 200}, SEED), *args)
 
     assert first == second
+
+
+def test_cross_validated_scores_are_rounded(training_matrix):
+    """Keeps train_summary.json stable across otherwise identical runs.
+
+    cross_val_score reduces folds in a thread pool, so summation order can shift
+    the last digits of a float between runs. Unrounded, that changed the hash of
+    models/candidates and made DVC re-run every downstream stage even though the
+    model binaries were byte-identical.
+    """
+    x_train, y_train = training_matrix
+    metrics = cross_validate(
+        build_model("logistic_regression", {"max_iter": 200}, SEED), x_train, y_train, 3, SEED
+    )
+
+    for name, value in metrics.items():
+        assert value == round(value, METRIC_PRECISION), f"{name} was not rounded"

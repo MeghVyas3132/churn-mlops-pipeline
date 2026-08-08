@@ -81,8 +81,8 @@ stages:
       nfiles: 6
     - path: src/models/train.py
       hash: md5
-      md5: 9109472ffa08557946918fde8051b066
-      size: 6628
+      md5: 482c558624da2c1956a7f81e94993634
+      size: 7386
     - path: src/utils/config.py
       hash: md5
       md5: 4ec2c88f5253de0cc19599e91931be1e
@@ -134,8 +134,8 @@ stages:
     outs:
     - path: models/candidates
       hash: md5
-      md5: 1521878c2639332da12cde132f9657d6.dir
-      size: 8578070
+      md5: 8cbcf9486810c00e17e9fa7016b8de1f.dir
+      size: 8578007
       nfiles: 4
   evaluate:
     cmd: python -m src.models.evaluate
@@ -147,8 +147,8 @@ stages:
       nfiles: 6
     - path: models/candidates
       hash: md5
-      md5: 1521878c2639332da12cde132f9657d6.dir
-      size: 8578070
+      md5: 8cbcf9486810c00e17e9fa7016b8de1f.dir
+      size: 8578007
       nfiles: 4
     - path: src/models/evaluate.py
       hash: md5

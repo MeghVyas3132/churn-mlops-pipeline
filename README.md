@@ -27,36 +27,50 @@ Nothing is committed to the wrong one. That separation is what makes the workflo
 
 ## Quick start
 
+Common to both routes below — **Python 3.12 or newer is required** (numpy and xgboost set
+that floor; 3.14 is what CI runs):
+
 ```bash
-# 1. Clone
 git clone https://github.com/MeghVyas3132/churn-mlops-pipeline.git
 cd churn-mlops-pipeline
-
-# 2. Environment (Python 3.14; 3.11+ works)
 make setup
 source .venv/bin/activate
-
-# 3. Credentials — see "Credentials" below
-#    Kaggle token at ~/.kaggle/access_token, DagsHub token via `dvc remote modify`
-
-# 4. Run the whole pipeline
-dvc repro
 ```
 
-Already have access to the DVC remote? Skip the Kaggle download entirely:
+### Route A — pull the exact data (no Kaggle account needed)
+
+Recommended if you have been granted access to the DagsHub remote. Credentials must be set
+**before** `dvc pull`, or it fails with `HTTP 'basic' authentication require both 'user'
+and 'password'`.
 
 ```bash
-dvc pull        # fetches the exact data version recorded in dvc.lock
-dvc repro       # every stage is cached, so this is a no-op
+dvc remote modify origin --local user     <YOUR_DAGSHUB_USERNAME>
+dvc remote modify origin --local password <YOUR_DAGSHUB_TOKEN>
+
+dvc pull      # ~50 MB: raw CSVs, processed splits, all model artifacts
+dvc repro     # every stage is already cached, so this reports "up to date"
 ```
 
-Then inspect the results:
+### Route B — rebuild everything from source
+
+No DVC remote access needed, but you need a Kaggle token at `~/.kaggle/access_token`
+(see [Credentials](#credentials)). Takes a few minutes.
 
 ```bash
-make metrics                # metrics from the last run
-make mlflow                 # MLflow UI at http://localhost:5000
-open reports/plots/roc_curves.png
+dvc repro     # downloads from Kaggle, then runs all four stages
 ```
+
+### Then inspect the results
+
+```bash
+dvc metrics show                     # metrics from the last run
+make mlflow                          # MLflow UI at http://localhost:5000
+```
+
+Plots land in `reports/plots/` (`roc_curves.png`, `confusion_matrix_*.png`).
+
+> Both routes were verified from a clean `git clone` into an empty directory. Route A
+> reproduced `reports/metrics.json` byte-identically and reported all four stages cached.
 
 ---
 
