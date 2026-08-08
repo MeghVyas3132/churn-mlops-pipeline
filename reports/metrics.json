@@ -1,0 +1,31 @@
+{
+  "best_model": "xgboost",
+  "best_accuracy": 0.99985,
+  "best_precision": 1.0,
+  "best_recall": 0.9997361245492128,
+  "best_f1": 0.999868044864746,
+  "best_roc_auc": 0.9999977477899578,
+  "per_model": {
+    "logistic_regression": {
+      "accuracy": 0.89625,
+      "precision": 0.9394741819557405,
+      "recall": 0.873779576040109,
+      "f1": 0.9054368135624117,
+      "roc_auc": 0.9596373183621899
+    },
+    "random_forest": {
+      "accuracy": 0.9921,
+      "precision": 0.999910817800767,
+      "recall": 0.9861905180754684,
+      "f1": 0.9930032769462404,
+      "roc_auc": 0.9999309458133653
+    },
+    "xgboost": {
+      "accuracy": 0.99985,
+      "precision": 1.0,
+      "recall": 0.9997361245492128,
+      "f1": 0.999868044864746,
+      "roc_auc": 0.9999977477899578
+    }
+  }
+}
