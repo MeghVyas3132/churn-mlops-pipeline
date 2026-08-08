@@ -1,0 +1,58 @@
+# ---- Data (tracked by DVC, never by Git) ----
+/data/raw/
+/data/processed/
+/data/external/
+
+# ---- Model artifacts (produced by the pipeline) ----
+/models/
+
+# ---- Reports ----
+# Plots are binary and DVC-cached. metrics.json and model_comparison.csv are
+# deliberately NOT ignored: they are declared `cache: false` in dvc.yaml so they
+# live in Git, which is what makes `dvc metrics diff` work across commits.
+/reports/plots/
+
+# ---- MLflow ----
+/mlruns/
+/mlartifacts/
+mlflow.db
+
+# ---- DVC ----
+/.dvc/cache
+/.dvc/tmp
+/.dvc/config.local
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# ---- Secrets ----
+.env
+kaggle.json
+*.pem
+credentials.json
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+.DS_Store
+*.swp
+.qodo/

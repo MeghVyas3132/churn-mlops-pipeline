@@ -1,0 +1,24 @@
+[tool.pytest.ini_options]
+# Puts the project root on sys.path so `from src.utils.config import ...` works
+# without an editable install -- one less step for anyone cloning the repo.
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--color=yes",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/__init__.py", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

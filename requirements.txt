@@ -1,0 +1,33 @@
+# Exact pins. A reproducible pipeline needs a reproducible environment -- an
+# unpinned scikit-learn upgrade can shift metrics on identical data and seeds,
+# which defeats the point of tracking runs at all.
+#
+# Verified against Python 3.14 on macOS and ubuntu-latest in CI.
+
+# --- Core data / numerics ---
+pandas==2.3.3
+numpy==2.5.1
+PyYAML==6.0.3
+joblib==1.5.3
+
+# --- Modelling ---
+scikit-learn==1.9.0
+xgboost==3.4.0
+
+# --- Experiment tracking ---
+mlflow==3.15.1
+
+# --- Data versioning ---
+dvc==3.67.1
+dvc-gdrive==3.0.1
+
+# --- Data acquisition ---
+kaggle==2.2.4
+
+# --- Reporting ---
+matplotlib==3.11.1
+
+# --- Testing / linting ---
+pytest==9.1.1
+pytest-cov==7.1.0
+flake8==7.3.0

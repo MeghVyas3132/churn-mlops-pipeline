@@ -1,0 +1,96 @@
+# ---------------------------------------------------------------------------
+# Single source of truth for every tunable in the pipeline.
+#
+# Nothing in src/ is allowed to hard-code a hyperparameter, a path or a seed.
+# Changing a value here and re-running `dvc repro` is the only supported way to
+# alter pipeline behaviour -- that is what makes runs reproducible and what lets
+# DVC detect which stages have gone stale.
+# ---------------------------------------------------------------------------
+
+# Global seed. Threaded through the split, every model and numpy itself so two
+# runs of the same commit produce byte-identical outputs.
+seed: 42
+
+ingest:
+  kaggle_dataset: muhammadshahidazeem/customer-churn-dataset
+  raw_dir: data/raw
+  # The dataset ships pre-split by the author, but we ignore their split and
+  # build our own from the training file so the split ratio is under our
+  # control and reproducible from `seed`.
+  train_file: customer_churn_dataset-training-master.csv
+  test_file: customer_churn_dataset-testing-master.csv
+  target_column: Churn
+  id_column: CustomerID
+
+preprocess:
+  processed_dir: data/processed
+  test_size: 0.2
+  # Keep the churn ratio identical in train and test. Without this a random
+  # split can drift the positive rate enough to make metrics incomparable
+  # between runs.
+  stratify: true
+  # The published CSV contains a malformed row that parses as all-NaN. Rows
+  # missing the target are unusable for supervised training, so they go.
+  drop_rows_missing_target: true
+  # Numeric gaps are filled with the *training* median, categorical gaps with
+  # the training mode. Both statistics are learned on train only and reused on
+  # test -- fitting them on the full frame would leak test information.
+  numeric_impute_strategy: median
+  categorical_impute_strategy: most_frequent
+  scale_numeric: true
+  # Cap on rows sampled from the raw file. The full dataset is ~440k rows,
+  # which makes CI slow without changing any conclusion. null = use everything.
+  sample_size: 100000
+
+train:
+  # Every candidate lands here. Kept separate from the promoted model so the
+  # train and evaluate DVC stages own disjoint outputs -- two stages writing
+  # into one directory makes the DAG ambiguous.
+  models_dir: models/candidates
+  # Metric used to pick the winner in evaluate.py. Accuracy is a poor choice on
+  # imbalanced churn data, so selection is driven by ROC-AUC.
+  primary_metric: roc_auc
+  cv_folds: 3
+  models:
+    logistic_regression:
+      enabled: true
+      params:
+        C: 1.0
+        max_iter: 1000
+        solver: lbfgs
+        class_weight: balanced
+    random_forest:
+      enabled: true
+      params:
+        n_estimators: 200
+        max_depth: 12
+        min_samples_split: 5
+        min_samples_leaf: 2
+        class_weight: balanced
+        n_jobs: -1
+    xgboost:
+      enabled: true
+      params:
+        n_estimators: 300
+        max_depth: 6
+        learning_rate: 0.1
+        subsample: 0.9
+        colsample_bytree: 0.9
+        eval_metric: logloss
+
+evaluate:
+  reports_dir: reports
+  # The single artifact a serving layer would load.
+  promoted_model_path: models/best_model.joblib
+  # A model that cannot clear this on the held-out test set is not promoted.
+  # Fails the pipeline loudly rather than shipping a broken artifact.
+  min_roc_auc: 0.70
+
+mlflow:
+  experiment_name: churn-prediction
+  # SQLite rather than a plain './mlruns' directory: MLflow 3.x put the file
+  # store into maintenance mode and refuses to open one. SQLite needs no server,
+  # keeps everything inside the repo, and enables the Model Registry.
+  tracking_uri: sqlite:///mlflow.db
+  artifact_location: mlartifacts
+  registered_model_name: churn-classifier
