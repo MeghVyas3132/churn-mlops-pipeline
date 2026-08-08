@@ -18,8 +18,10 @@ xgboost==3.4.0
 mlflow==3.15.1
 
 # --- Data versioning ---
+# DagsHub exposes an HTTP-protocol DVC remote, which core dvc handles natively --
+# no storage plugin needed. Swap in dvc-s3 / dvc-gs / dvc-azure to point the same
+# pipeline at S3, Cloudflare R2, GCS or Azure Blob instead.
 dvc==3.67.1
-dvc-gdrive==3.0.1
 
 # --- Data acquisition ---
 kaggle==2.2.4

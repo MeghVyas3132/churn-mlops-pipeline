@@ -18,7 +18,7 @@ Three different things get versioned, by three different tools:
 | Tool | Versions | Lives in |
 |------|----------|----------|
 | **Git** | Code, configuration, pipeline definition | GitHub |
-| **DVC** | Datasets and model artifacts (too large/binary for Git) | Google Drive remote; hashes in `dvc.lock` |
+| **DVC** | Datasets and model artifacts (too large/binary for Git) | DagsHub remote; hashes in `dvc.lock` |
 | **MLflow** | Experiments — parameters, metrics, model artifacts | Local SQLite store + Model Registry |
 
 Nothing is committed to the wrong one. That separation is what makes the workflow reproducible.
@@ -37,7 +37,7 @@ make setup
 source .venv/bin/activate
 
 # 3. Credentials — see "Credentials" below
-#    Kaggle token at ~/.kaggle/kaggle.json, and `dvc remote modify` for Drive
+#    Kaggle token at ~/.kaggle/access_token, DagsHub token via `dvc remote modify`
 
 # 4. Run the whole pipeline
 dvc repro
@@ -203,36 +203,61 @@ request** to `main`:
 
 ## Credentials
 
-### Kaggle (needed for `dvc repro` from scratch)
+No secret is ever committed. Everything below writes either to your home directory or to
+`.dvc/config.local`, both of which are outside Git's reach.
+
+### Kaggle (needed only for `dvc repro` from scratch)
 
 Get a token from <https://www.kaggle.com/settings> → *API* → *Create New Token*, then:
 
 ```bash
-mkdir -p ~/.kaggle && mv ~/Downloads/kaggle.json ~/.kaggle/
-chmod 600 ~/.kaggle/kaggle.json
+mkdir -p ~/.kaggle && printf '%s' "KGAT_your_token_here" > ~/.kaggle/access_token
+chmod 600 ~/.kaggle/access_token
 ```
 
-CI and other non-interactive environments can instead export `KAGGLE_USERNAME` and
-`KAGGLE_KEY`. Not needed at all if you use `dvc pull`.
+The `chmod` is not optional — the client refuses to run on a world-readable token file.
 
-### DVC remote (Google Drive)
+Kaggle issues an opaque `KGAT_…` token; the older `kaggle.json` username/key pair still
+works and is also detected. Non-interactive environments can export `KAGGLE_API_TOKEN`
+instead. None of this is needed if you use `dvc pull`.
+
+### DVC remote and MLflow server (DagsHub)
+
+[DagsHub](https://dagshub.com) hosts both a DVC remote and an MLflow tracking server for a
+repository, so data, models and experiment history all live in one place a reviewer can
+open in a browser.
+
+1. Sign in at <https://dagshub.com> with GitHub
+2. **+** → **Connect a Repository** → **GitHub** → select this repo
+3. Generate a token at <https://dagshub.com/user/settings/tokens>
+
+The remote URL is already in `.dvc/config`. Supply your credentials locally:
 
 ```bash
-dvc remote add -d storage gdrive://<YOUR_FOLDER_ID>
-dvc remote modify storage gdrive_acknowledge_abuse true
+dvc remote modify origin --local user     <YOUR_DAGSHUB_USERNAME>
+dvc remote modify origin --local password <YOUR_DAGSHUB_TOKEN>
 dvc push
 ```
 
-`<YOUR_FOLDER_ID>` is the trailing path segment of the Drive folder URL
-(`https://drive.google.com/drive/folders/`**`1a2b3c...`**). The first `dvc push` opens a
-browser for OAuth consent.
+`--local` writes to `.dvc/config.local`, which is gitignored. Never drop a token into
+`.dvc/config` — that file *is* committed.
 
-> Since 2024 Google requires each user to supply their own OAuth client for gdrive
-> remotes. If the default flow is rejected, create a client in Google Cloud Console and
-> set `gdrive_client_id` / `gdrive_client_secret` — DVC's
-> [gdrive documentation](https://dvc.org/doc/user-guide/data-management/remote-storage/google-drive)
-> has the walkthrough. A local remote (`dvc remote add -d storage /path/to/folder`) is a
-> working fallback.
+To send experiment runs to the hosted MLflow server instead of the local SQLite file:
+
+```bash
+export MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
+export MLFLOW_TRACKING_USERNAME=<YOUR_DAGSHUB_USERNAME>
+export MLFLOW_TRACKING_PASSWORD=<YOUR_DAGSHUB_TOKEN>
+dvc repro --force
+```
+
+`MLFLOW_TRACKING_URI` overrides `params.yaml`, so the same commit logs locally on a laptop
+and to the server in CI without a URL or credential ever entering Git. Unset the variables
+and everything falls back to `sqlite:///mlflow.db`.
+
+> **Prefer no accounts at all?** A local directory works as a drop-in replacement and still
+> demonstrates the full `dvc push` / `dvc pull` cycle:
+> `dvc remote add -d --force storage ~/dvc-storage/churn-mlops`
 
 ---
 
@@ -286,7 +311,7 @@ churn-mlops-pipeline/
 |---|-------------|-------|
 | 1 | Ingest and preprocess | [src/data/](src/data/) |
 | 2 | Train and evaluate multiple models | [train.py](src/models/train.py), [evaluate.py](src/models/evaluate.py) |
-| 3 | Track data with DVC | [dvc.yaml](dvc.yaml), `dvc.lock`, Drive remote |
+| 3 | Track data with DVC | [dvc.yaml](dvc.yaml), `dvc.lock`, DagsHub remote |
 | 4 | Track experiments with MLflow | [tracking.py](src/utils/tracking.py) + both model stages |
 | 5 | Automated tests with Pytest | [tests/](tests/) — 95 tests |
 | 6 | Git version control | Commit history, branches, PRs |
