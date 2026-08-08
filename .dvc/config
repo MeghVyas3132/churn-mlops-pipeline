@@ -1,0 +1,5 @@
+[core]
+    remote = origin
+['remote "origin"']
+    url = https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.dvc
+    auth = basic

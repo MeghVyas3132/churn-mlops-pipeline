@@ -231,7 +231,8 @@ open in a browser.
 2. **+** → **Connect a Repository** → **GitHub** → select this repo
 3. Generate a token at <https://dagshub.com/user/settings/tokens>
 
-The remote URL is already in `.dvc/config`. Supply your credentials locally:
+The remote URL and `auth = basic` are already in `.dvc/config`, so only the credentials are
+left to supply — and those go in the local, gitignored config:
 
 ```bash
 dvc remote modify origin --local user     <YOUR_DAGSHUB_USERNAME>
@@ -245,7 +246,7 @@ dvc push
 To send experiment runs to the hosted MLflow server instead of the local SQLite file:
 
 ```bash
-export MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
+export MLFLOW_TRACKING_URI=https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow
 export MLFLOW_TRACKING_USERNAME=<YOUR_DAGSHUB_USERNAME>
 export MLFLOW_TRACKING_PASSWORD=<YOUR_DAGSHUB_TOKEN>
 dvc repro --force
