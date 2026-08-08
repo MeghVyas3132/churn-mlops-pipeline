@@ -1,5 +1,7 @@
 # Customer Churn Prediction — MLOps Pipeline
 
+[![CI](https://github.com/MeghVyas3132/churn-mlops-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/MeghVyas3132/churn-mlops-pipeline/actions/workflows/ci.yml)
+
 An end-to-end, reproducible machine learning pipeline that predicts customer churn from
 demographics, account information, service usage and billing details.
 
@@ -9,6 +11,20 @@ identical experiment records and the same promoted artifact.
 
 > **Course:** MLOps (STDE 301) · Vijaybhoomi School of Science and Technology · Mid Term, August 2026
 
+## Live links
+
+| What | Where |
+|------|-------|
+| **Source code** | <https://github.com/MeghVyas3132/churn-mlops-pipeline> |
+| **CI runs** (lint · tests · DAG validation) | [GitHub Actions](https://github.com/MeghVyas3132/churn-mlops-pipeline/actions/workflows/ci.yml) |
+| **Experiment tracking** — all runs, params, metrics, Model Registry | [MLflow on DagsHub](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow) |
+| **Data & model storage** — DVC remote | [DagsHub repository](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline) |
+| **Source dataset** | [Kaggle — customer-churn-dataset](https://www.kaggle.com/datasets/muhammadshahidazeem/customer-churn-dataset) |
+
+The MLflow link opens the runs table directly: three models compared side by side under one
+parent run, plus `churn-classifier` in the Model Registry. DagsHub and Kaggle may require
+sign-in depending on the repository's visibility setting.
+
 ---
 
 ## The core idea
@@ -17,9 +33,9 @@ Three different things get versioned, by three different tools:
 
 | Tool | Versions | Lives in |
 |------|----------|----------|
-| **Git** | Code, configuration, pipeline definition | GitHub |
-| **DVC** | Datasets and model artifacts (too large/binary for Git) | DagsHub remote; hashes in `dvc.lock` |
-| **MLflow** | Experiments — parameters, metrics, model artifacts | Local SQLite store + Model Registry |
+| **Git** | Code, configuration, pipeline definition | [GitHub](https://github.com/MeghVyas3132/churn-mlops-pipeline) |
+| **DVC** | Datasets and model artifacts (too large/binary for Git) | [DagsHub remote](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline); hashes in `dvc.lock` |
+| **MLflow** | Experiments — parameters, metrics, model artifacts | [Hosted tracking server](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow), or local SQLite |
 
 Nothing is committed to the wrong one. That separation is what makes the workflow reproducible.
 
@@ -64,10 +80,13 @@ dvc repro     # downloads from Kaggle, then runs all four stages
 
 ```bash
 dvc metrics show                     # metrics from the last run
-make mlflow                          # MLflow UI at http://localhost:5000
+make mlflow                          # local MLflow UI at http://localhost:5000
 ```
 
 Plots land in `reports/plots/` (`roc_curves.png`, `confusion_matrix_*.png`).
+
+No clone needed just to look — the runs are already published at
+**[dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow)**.
 
 > Both routes were verified from a clean `git clone` into an empty directory. Route A
 > reproduced `reports/metrics.json` byte-identically and reported all four stages cached.
@@ -326,9 +345,9 @@ churn-mlops-pipeline/
 |---|-------------|-------|
 | 1 | Ingest and preprocess | [src/data/](src/data/) |
 | 2 | Train and evaluate multiple models | [train.py](src/models/train.py), [evaluate.py](src/models/evaluate.py) |
-| 3 | Track data with DVC | [dvc.yaml](dvc.yaml), `dvc.lock`, DagsHub remote |
-| 4 | Track experiments with MLflow | [tracking.py](src/utils/tracking.py) + both model stages |
+| 3 | Track data with DVC | [dvc.yaml](dvc.yaml), `dvc.lock`, [DagsHub remote](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline) |
+| 4 | Track experiments with MLflow | [tracking.py](src/utils/tracking.py) + both model stages · [live runs](https://dagshub.com/MeghVyas3132/churn-mlops-pipeline.mlflow) |
 | 5 | Automated tests with Pytest | [tests/](tests/) — 95 tests |
 | 6 | Git version control | Commit history, branches, PRs |
-| 7 | GitHub Actions on push and PR | [ci.yml](.github/workflows/ci.yml) |
+| 7 | GitHub Actions on push and PR | [ci.yml](.github/workflows/ci.yml) · [run history](https://github.com/MeghVyas3132/churn-mlops-pipeline/actions/workflows/ci.yml) |
 | 8 | Reproducible by another developer | This README, `params.yaml`, pinned deps, `dvc.lock` |
